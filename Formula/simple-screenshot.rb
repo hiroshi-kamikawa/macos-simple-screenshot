@@ -2,7 +2,7 @@ class SimpleScreenshot < Formula
   desc "Fast, lightweight native screenshot and screen recording app for macOS"
   homepage "https://github.com/hiroshi-kamikawa/macos-simple-screenshot"
   url "https://github.com/hiroshi-kamikawa/macos-simple-screenshot/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "REPLACE_AFTER_FIRST_RELEASE"
+  sha256 "d23b97e9c225d71f55a66fb099c617430b6a42799f922ca3e1d1626a0668ee6b"
   license "MIT"
   depends_on xcode: ["15.0", :build]
 
