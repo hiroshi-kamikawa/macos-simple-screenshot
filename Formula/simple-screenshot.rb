@@ -8,6 +8,7 @@ class SimpleScreenshot < Formula
 
   def install
     ENV["DEVELOPER_DIR"] = "/Applications/Xcode.app/Contents/Developer"
+    inreplace "scripts/build-app.sh", "swift build -c release", "swift build --disable-sandbox -c release"
     system "sh", "scripts/build-app.sh"
     prefix.install "dist/Simple Screenshot.app"
     bin.write_exec_script prefix/"Simple Screenshot.app/Contents/MacOS/SimpleScreenshot"

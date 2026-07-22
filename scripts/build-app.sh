@@ -6,7 +6,7 @@ BUILD="$ROOT/.build/release"
 APP="$ROOT/dist/Simple Screenshot.app"
 
 cd "$ROOT"
-swift build -c release
+swift build --disable-sandbox -c release
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BUILD/SimpleScreenshot" "$APP/Contents/MacOS/SimpleScreenshot"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
