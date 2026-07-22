@@ -1,0 +1,16 @@
+name: build
+on:
+  push:
+  pull_request:
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift build
+      - run: sh scripts/build-app.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SimpleScreenshot-app
+          path: dist/Simple Screenshot.app
