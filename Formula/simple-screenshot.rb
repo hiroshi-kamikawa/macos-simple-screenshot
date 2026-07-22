@@ -7,6 +7,7 @@ class SimpleScreenshot < Formula
   depends_on xcode: ["15.0", :build]
 
   def install
+    ENV["DEVELOPER_DIR"] = "/Applications/Xcode.app/Contents/Developer"
     system "sh", "scripts/build-app.sh"
     prefix.install "dist/Simple Screenshot.app"
     bin.write_exec_script prefix/"Simple Screenshot.app/Contents/MacOS/SimpleScreenshot"
