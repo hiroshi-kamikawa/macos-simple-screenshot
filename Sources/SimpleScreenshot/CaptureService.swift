@@ -3,7 +3,13 @@ import ScreenCaptureKit
 
 @MainActor
 final class CaptureCoordinator {
-    private var recorder: VideoRecorder?
+    private enum RecordingState {
+        case idle
+        case starting(UUID)
+        case active(VideoRecorder)
+    }
+
+    private var recordingState = RecordingState.idle
 
     func perform(_ action: CaptureAction) async {
         do {
@@ -22,8 +28,19 @@ final class CaptureCoordinator {
     }
 
     func stopRecording() async {
-        guard let recorder else { return }
-        self.recorder = nil
+        switch recordingState {
+        case .idle:
+            return
+        case .starting:
+            recordingState = .idle
+            return
+        case .active(let recorder):
+            recordingState = .idle
+            await finishRecording(recorder)
+        }
+    }
+
+    private func finishRecording(_ recorder: VideoRecorder) async {
         do {
             let url = try await recorder.stop()
             NSSound(named: "Glass")?.play()
@@ -35,8 +52,17 @@ final class CaptureCoordinator {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         guard let display = mainDisplay(in: content) ?? content.displays.first else { throw CaptureError.noDisplay }
 
-        let selection = try await target(for: action, content: content, display: display)
-        let captureDisplay = displayFor(selection, in: content) ?? display
+        var selection = try await target(for: action, content: content, display: display)
+        var captureContent = content
+        if case .window = selection {
+            captureContent = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            selection = try revalidateWindow(selection, in: captureContent)
+        }
+        guard let captureDisplay = displayFor(selection, in: captureContent)
+            ?? mainDisplay(in: captureContent)
+            ?? captureContent.displays.first else {
+            throw CaptureError.noDisplay
+        }
         let filter: SCContentFilter
         let config = SCStreamConfiguration()
         config.showsCursor = false
@@ -61,11 +87,39 @@ final class CaptureCoordinator {
     }
 
     private func startRecording(_ action: CaptureAction) async throws {
-        if recorder != nil { return }
-        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-        guard let display = mainDisplay(in: content) ?? content.displays.first else { throw CaptureError.noDisplay }
-        let selection = try await target(for: action, content: content, display: display)
-        recorder = try await VideoRecorder.start(selection: selection, display: displayFor(selection, in: content) ?? display)
+        guard case .idle = recordingState else { return }
+        let startID = UUID()
+        recordingState = .starting(startID)
+
+        do {
+            var content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            guard let initialDisplay = mainDisplay(in: content) ?? content.displays.first else { throw CaptureError.noDisplay }
+            var selection = try await target(for: action, content: content, display: initialDisplay)
+            if case .window = selection {
+                content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+                selection = try revalidateWindow(selection, in: content)
+            }
+            guard let display = displayFor(selection, in: content) ?? mainDisplay(in: content) ?? content.displays.first else {
+                throw CaptureError.noDisplay
+            }
+            guard case .starting(let currentStartID) = recordingState,
+                  currentStartID == startID else {
+                throw CaptureError.cancelled
+            }
+            let recorder = try await VideoRecorder.start(selection: selection, display: display)
+            guard case .starting(let currentStartID) = recordingState,
+                  currentStartID == startID else {
+                _ = try? await recorder.stop()
+                throw CaptureError.cancelled
+            }
+            recordingState = .active(recorder)
+        } catch {
+            if case .starting(let currentStartID) = recordingState,
+               currentStartID == startID {
+                recordingState = .idle
+            }
+            throw error
+        }
         NSSound(named: "Tink")?.play()
     }
 
@@ -75,18 +129,23 @@ final class CaptureCoordinator {
         switch action {
         case .screenImage, .screenVideo: return .display
         case .areaImage, .areaVideo:
-            guard let rect = await SelectionOverlay.select(.area) else { throw CaptureError.cancelled }
+            guard case .area(let rect)? = await SelectionOverlay.select(.area) else { throw CaptureError.cancelled }
             return .area(rect)
         case .windowImage, .windowVideo:
             let windows = content.windows.filter { $0.isOnScreen && $0.owningApplication?.bundleIdentifier != Bundle.main.bundleIdentifier && $0.frame.width > 80 }
-            guard let rect = await SelectionOverlay.select(.window(windows)),
-                  let window = windows.min(by: { frameDistance($0.frame, rect) < frameDistance($1.frame, rect) }) else { throw CaptureError.cancelled }
+            guard case .window(let window)? = await SelectionOverlay.select(.window(windows)) else { throw CaptureError.cancelled }
             return .window(window)
         }
     }
 
-    private func frameDistance(_ a: CGRect, _ b: CGRect) -> CGFloat {
-        abs(a.minX-b.minX) + abs(a.minY-b.minY) + abs(a.width-b.width) + abs(a.height-b.height)
+    private func revalidateWindow(_ target: Target, in content: SCShareableContent) throws -> Target {
+        guard case .window(let selectedWindow) = target,
+              let currentWindow = content.windows.first(where: {
+                  $0.windowID == selectedWindow.windowID && $0.isOnScreen
+              }) else {
+            throw CaptureError.cancelled
+        }
+        return .window(currentWindow)
     }
 
     private func mainDisplay(in content: SCShareableContent) -> SCDisplay? {

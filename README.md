@@ -40,6 +40,20 @@ make app
 open "dist/Simple Screenshot.app"
 ```
 
+## ランチャーから起動
+
+```sh
+make install
+```
+
+`~/Applications/Simple Screenshot.app` にインストールされ、Launchpad、Spotlight、Raycastなどのランチャーから「Simple Screenshot」で起動できるようになります。初回だけランチャーへの反映に少し時間がかかる場合があります。
+
+システム共通の `/Applications` にインストールしたい場合は、次のように保存先を指定できます。
+
+```sh
+sudo APPLICATIONS_DIR=/Applications sh scripts/install-app.sh
+```
+
 ## Homebrew
 
 Homebrew tapへFormulaを追加すると、次の形式でインストールできます。
