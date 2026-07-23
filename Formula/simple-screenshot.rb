@@ -1,14 +1,13 @@
 class SimpleScreenshot < Formula
   desc "Fast, lightweight native screenshot and screen recording app for macOS"
   homepage "https://github.com/hiroshi-kamikawa/macos-simple-screenshot"
-  url "https://github.com/hiroshi-kamikawa/macos-simple-screenshot/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "d23b97e9c225d71f55a66fb099c617430b6a42799f922ca3e1d1626a0668ee6b"
+  url "https://github.com/hiroshi-kamikawa/macos-simple-screenshot/archive/refs/tags/v0.1.1.tar.gz"
+  sha256 "4dc8cf633a5e59f29b9754938fe3bb82324b4721751dcf95e416b041d8442d7e"
   license "MIT"
   depends_on xcode: ["15.0", :build]
 
   def install
     ENV["DEVELOPER_DIR"] = "/Applications/Xcode.app/Contents/Developer"
-    inreplace "scripts/build-app.sh", "swift build -c release", "swift build --disable-sandbox -c release"
     system "sh", "scripts/build-app.sh"
     prefix.install "dist/Simple Screenshot.app"
     bin.write_exec_script prefix/"Simple Screenshot.app/Contents/MacOS/SimpleScreenshot"
