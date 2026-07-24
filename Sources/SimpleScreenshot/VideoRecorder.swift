@@ -15,7 +15,8 @@ final class VideoRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     static func start(selection: CaptureCoordinator.Target, display: SCDisplay) async throws -> VideoRecorder {
         let filter: SCContentFilter
         let config = SCStreamConfiguration()
-        config.minimumFrameInterval = CMTime(value: 1, timescale: 30)
+        let frameRate = 24
+        config.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(frameRate))
         config.queueDepth = 5
         config.showsCursor = true
         config.pixelFormat = kCVPixelFormatType_32BGRA
@@ -41,15 +42,18 @@ final class VideoRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
         let url = Storage.videoURL()
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+        // Screen recordings compress well at a lower, resolution-aware bitrate.
+        // HEVC preserves text and UI edges more efficiently than H.264.
+        let bitsPerPixel = 0.45
+        let averageBitRate = min(900_000, max(220_000, Int(Double(width * height) * bitsPerPixel)))
         let settings: [String: Any] = [
-            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoCodecKey: AVVideoCodecType.hevc,
             AVVideoWidthKey: width,
             AVVideoHeightKey: height,
             AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: 1_600_000,
-                AVVideoExpectedSourceFrameRateKey: 30,
-                AVVideoMaxKeyFrameIntervalKey: 120,
-                AVVideoProfileLevelKey: AVVideoProfileLevelH264MainAutoLevel
+                AVVideoAverageBitRateKey: averageBitRate,
+                AVVideoExpectedSourceFrameRateKey: frameRate,
+                AVVideoMaxKeyFrameIntervalKey: frameRate * 5
             ]
         ]
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)

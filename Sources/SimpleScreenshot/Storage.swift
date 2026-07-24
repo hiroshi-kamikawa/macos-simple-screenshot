@@ -1,5 +1,7 @@
 import AppKit
 import AVFoundation
+import ImageIO
+import UniformTypeIdentifiers
 
 enum Storage {
     static var outputDirectory: URL {
@@ -9,15 +11,26 @@ enum Storage {
         return directory
     }
 
-    static func imageURL() -> URL { outputDirectory.appendingPathComponent("Screenshot-\(timestamp()).jpg") }
+    static func imageURL() -> URL { outputDirectory.appendingPathComponent("Screenshot-\(timestamp()).heic") }
     static func videoURL() -> URL { outputDirectory.appendingPathComponent("Recording-\(timestamp()).mp4") }
 
-    static func saveJPEG(_ image: NSImage, quality: CGFloat = 0.68) throws -> URL {
+    static func saveImage(_ image: NSImage, quality: CGFloat = 0.60) throws -> URL {
         guard let tiff = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiff),
-              let data = bitmap.representation(using: .jpeg, properties: [.compressionFactor: quality]) else {
+              let cgImage = bitmap.cgImage else {
             throw CaptureError.exportFailed
         }
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            data,
+            UTType.heic.identifier as CFString,
+            1,
+            nil
+        ) else { throw CaptureError.exportFailed }
+        let properties = [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary
+        CGImageDestinationAddImage(destination, cgImage, properties)
+        guard CGImageDestinationFinalize(destination) else { throw CaptureError.exportFailed }
+
         let url = imageURL()
         try data.write(to: url, options: .atomic)
         return url
