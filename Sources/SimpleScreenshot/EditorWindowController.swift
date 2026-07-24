@@ -66,7 +66,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         didSave = true
         do {
             let image = canvas.renderedImage()
-            _ = try Storage.saveJPEG(image)
+            _ = try Storage.saveImage(image)
             Storage.copyToPasteboard(image)
         } catch {
             NSAlert(error: error).runModal()
